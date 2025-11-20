@@ -1,9 +1,11 @@
 package msku.ceng.madlab.week8;
 
 import android.Manifest;
+import android.app.ProgressDialog;
 import android.content.pm.PackageManager;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.os.Environment;
 import android.view.View;
@@ -39,6 +41,8 @@ public class MainActivity extends AppCompatActivity {
 
     };
 
+
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -57,14 +61,28 @@ public class MainActivity extends AppCompatActivity {
             public void onClick(View v) {
                 int permission =
                 ActivityCompat.checkSelfPermission(MainActivity.this,Manifest.permission.WRITE_EXTERNAL_STORAGE);
-                if (permission != PackageManager.PERMISSION_DENIED){
+                if (permission != PackageManager.PERMISSION_GRANTED){
                     ActivityCompat.requestPermissions(MainActivity.this, PERMISSIONS_STORAGE,REQUEST_EXTERNAL_STORAGE);
                 }
-                String fileName = "temp_image.jpg";
-                String filePath = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).toString()
-                        + "/" + fileName;
-                downloadFile(txtUrl.getText().toString(),filePath);
-                preview(filePath);
+//                String fileName = "temp_image.jpg";
+//                String filePath = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).toString()
+//                        + "/" + fileName;
+//                downloadFile(txtUrl.getText().toString(),filePath);
+//                preview(filePath);
+
+
+
+
+//                DownloadTask backgroundTask = new DownloadTask();
+//                String [] urls  = new String[1];
+//                urls[0] = txtUrl.getText().toString();
+//                backgroundTask.execute(urls);
+
+                Thread backgroundThread = new Thread(new DownloadRunnable(txtUrl.getText().toString()));
+                backgroundThread.start();
+
+
+
 
             }
         });
@@ -108,17 +126,98 @@ public class MainActivity extends AppCompatActivity {
         if (requestCode == REQUEST_EXTERNAL_STORAGE){
             if (grantResults.length == 2 && grantResults[0] == PackageManager.PERMISSION_GRANTED
                     && grantResults[1] == PackageManager.PERMISSION_GRANTED){
-                String fileName = "temp_image.jpg";
-                String filePath =
-                        Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).toString()
-                        + "/" + fileName;
-                downloadFile(txtUrl.getText().toString(),filePath);
-                preview(filePath);
+//                String fileName = "temp_image.jpg";
+//                String filePath =
+//                        Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).toString()
+//                        + "/" + fileName;
+//                downloadFile(txtUrl.getText().toString(),filePath);
+//                preview(filePath);
+
+
+
+//                DownloadTask backgroundTask = new DownloadTask();
+//                String [] urls  = new String[1];
+//                urls[0] = txtUrl.getText().toString();
+//                backgroundTask.execute(urls);
+
+                Thread backgroundThread = new Thread(new DownloadRunnable(txtUrl.getText().toString()));
+                backgroundThread.start();
 
             }
         }
         else {
             Toast.makeText(this,"External Storage permission not granted", Toast.LENGTH_SHORT).show();
+        }
+    }
+    class DownloadTask extends AsyncTask<String, Integer, Bitmap>{
+        ProgressDialog PD;
+
+        @Override
+        protected Bitmap doInBackground(String... urls) {
+            String fileName = "temp.jpg";
+            String imagePath =
+                    Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).toString();
+            downloadFile(urls[0], imagePath + "/" + fileName);
+            return scaleBitmap(imagePath + "/" + fileName);
+
+        }
+
+        @Override
+        protected void onPostExecute(Bitmap bitmap) {
+            imgView.setImageBitmap(bitmap);
+            PD.dismiss();
+
+        }
+
+        @Override
+        protected void onPreExecute() {
+            super.onPreExecute();
+            PD = new ProgressDialog(MainActivity.this);
+            PD.setMax(100);
+            PD.setIndeterminate(false);
+            PD.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
+            PD.setTitle("Downloading");
+            PD.setMessage("Please wait...");
+            PD.show();
+        }
+    }
+    private  Bitmap scaleBitmap(String imagePath){
+        Bitmap image = BitmapFactory.decodeFile(imagePath);
+        float width = image.getWidth();
+        float height = image.getHeight();
+        int W = 400;
+        int H = (int) ( (height*W)/width);
+        Bitmap bitmap = Bitmap.createScaledBitmap(image, W, H, false);
+        return bitmap;
+    }
+    class DownloadRunnable implements Runnable{
+        String url;
+
+        public DownloadRunnable(String url) {
+            this.url = url;
+        }
+
+        @Override
+        public void run() {
+            String fileName = "temp.jpg";
+            String imagePath =
+                    Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS).toString();
+            downloadFile(url, imagePath + "/" + fileName);
+            Bitmap bitmap = scaleBitmap(imagePath + "/" + fileName);
+            runOnUiThread(new UpdateBitmap(bitmap));
+        }
+        class UpdateBitmap implements Runnable{
+            Bitmap bitmap;
+
+            public UpdateBitmap(Bitmap bitmap) {
+                this.bitmap = bitmap;
+            }
+
+            @Override
+            public void run() {
+                imgView.setImageBitmap(bitmap);
+
+            }
         }
     }
 }
